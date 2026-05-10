@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Search, Upload, More, Play, Plus, Trash, Music } from "./Icons";
 import { useLibraryStore } from "../stores/libraryStore";
-import { usePlayerStore } from "../stores/playerStore";
+import { usePlaybackStore } from "../stores/playbackStore";
 import { usePlaylistStore } from "../stores/playlistStore";
 import { Song, Playlist } from "../types";
 import { formatTime } from "../utils/format";
@@ -14,8 +14,8 @@ const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId }) => {
   const { songs, searchQuery, setSearchQuery, getFilteredSongs, removeSong } =
     useLibraryStore();
 
-  const { playSong, addToQueue, currentSong, isPlaying } = usePlayerStore();
-  const { playlists, removeSongFromPlaylist, getPlaylistSongs } =
+  const { currentSong, isPlaying } = usePlaybackStore();
+  const { playlists, removeSongFromPlaylist, getPlaylistSongs, playSong, addToQueue } =
     usePlaylistStore();
 
   const [contextMenu, setContextMenu] = useState<{
