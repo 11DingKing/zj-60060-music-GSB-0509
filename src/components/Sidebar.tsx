@@ -11,13 +11,12 @@ import {
 } from './Icons';
 import { useUIStore } from '../stores/uiStore';
 import { usePlaylistStore } from '../stores/playlistStore';
-import { usePlayerStore } from '../stores/playerStore';
 import { Playlist } from '../types';
 
 const Sidebar: React.FC = () => {
   const { currentView, currentPlaylistId, setCurrentView, setCurrentPlaylistId } = useUIStore();
   const { playlists, createPlaylist, deletePlaylist, updatePlaylist } = usePlaylistStore();
-  const { addToQueue } = usePlayerStore();
+  const { addToQueue } = usePlaylistStore();
   
   const [showNewPlaylistInput, setShowNewPlaylistInput] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');

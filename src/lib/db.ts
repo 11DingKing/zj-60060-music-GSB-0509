@@ -1,4 +1,4 @@
-import { openDB, IDBPDatabase } from "idb";
+import { openDB, IDBPDatabase, IDBPCursorWithValue, IDBPObjectStore } from "idb";
 import type {
   Song,
   Playlist,
@@ -17,6 +17,8 @@ interface MusicPlayerDB {
   audioBlobs: AudioBlob;
   equalizerPresets: EqualizerPreset;
 }
+
+type StoreName = keyof MusicPlayerDB;
 
 let db: IDBPDatabase<MusicPlayerDB> | null = null;
 
@@ -55,6 +57,45 @@ export async function getDB(): Promise<IDBPDatabase<MusicPlayerDB>> {
     });
   }
   return db;
+}
+
+async function genericGetAll<T extends StoreName>(
+  storeName: T,
+): Promise<MusicPlayerDB[T][]> {
+  const database = await getDB();
+  return database.getAll(storeName);
+}
+
+async function genericGet<T extends StoreName>(
+  storeName: T,
+  id: string,
+): Promise<MusicPlayerDB[T] | undefined> {
+  const database = await getDB();
+  return database.get(storeName, id);
+}
+
+async function genericAdd<T extends StoreName>(
+  storeName: T,
+  value: MusicPlayerDB[T],
+): Promise<void> {
+  const database = await getDB();
+  await database.add(storeName, value);
+}
+
+async function genericPut<T extends StoreName>(
+  storeName: T,
+  value: MusicPlayerDB[T],
+): Promise<void> {
+  const database = await getDB();
+  await database.put(storeName, value);
+}
+
+async function genericDelete<T extends StoreName>(
+  storeName: T,
+  id: string,
+): Promise<void> {
+  const database = await getDB();
+  await database.delete(storeName, id);
 }
 
 export async function getAllSongs(): Promise<Song[]> {

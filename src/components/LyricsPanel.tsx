@@ -1,44 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Close, Upload, Lyrics as LyricsIcon } from './Icons';
-import { usePlayerStore } from '../stores/playerStore';
+import { usePlaybackStore } from '../stores/playbackStore';
 import { useUIStore } from '../stores/uiStore';
-import { parseLRC, getLyrics, saveLyrics } from '../lib/metadata';
-import type { Lyrics } from '../types';
+import { useLyricsStore } from '../stores/lyricsStore';
 
 const LyricsPanel: React.FC = () => {
-  const { currentSong, currentTime, setCurrentTime } = usePlayerStore();
+  const { currentSong, currentTime, setCurrentTime } = usePlaybackStore();
   const { toggleLyricsPanel } = useUIStore();
-  
-  const [lyrics, setLyrics] = useState<Lyrics | null>(null);
-  const [activeIndex, setActiveIndex] = useState<number>(-1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { lyrics, activeIndex, isLoading, error, loadLyrics, setActiveIndex, clearLyrics, importLRC } = useLyricsStore();
   
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!currentSong) {
-      setLyrics(null);
-      setActiveIndex(-1);
+      clearLyrics();
       return;
     }
-
-    setIsLoading(true);
-    setError(null);
-    
-    getLyrics(currentSong.id).then((savedLyrics) => {
-      setLyrics(savedLyrics || null);
-      setIsLoading(false);
-    }).catch(() => {
-      setIsLoading(false);
-      setError('加载歌词失败');
-    });
-  }, [currentSong]);
+    loadLyrics(currentSong.id);
+  }, [currentSong, clearLyrics, loadLyrics]);
 
   useEffect(() => {
     if (!lyrics || !lyrics.parsed.length) {
-      setActiveIndex(-1);
+      if (activeIndex !== -1) setActiveIndex(-1);
       return;
     }
 
@@ -63,30 +47,16 @@ const LyricsPanel: React.FC = () => {
         }
       }
     }
-  }, [currentTime, lyrics, activeIndex]);
+  }, [currentTime, lyrics, activeIndex, setActiveIndex]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentSong) return;
 
-    setIsLoading(true);
-    setError(null);
-
     try {
       const text = await file.text();
-      const parsedLyrics = parseLRC(text);
-      
-      await saveLyrics(currentSong.id, parsedLyrics);
-      setLyrics({
-        id: '',
-        songId: currentSong.id,
-        content: text,
-        parsed: parsedLyrics,
-      });
-    } catch (err) {
-      setError('解析歌词文件失败');
+      await importLRC(currentSong.id, text);
     } finally {
-      setIsLoading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
