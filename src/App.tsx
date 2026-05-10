@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLibraryStore } from "./stores/libraryStore";
 import { usePlaylistStore } from "./stores/playlistStore";
-import { usePlayerStore } from "./stores/playerStore";
+import { usePlaybackStore } from "./stores/playbackStore";
 import { useEqualizerStore } from "./stores/equalizerStore";
 import { getAudioBlob } from "./lib/db";
 import Layout from "./components/Layout";
@@ -31,10 +31,10 @@ function App() {
     playMode,
     setCurrentTime,
     setDuration,
-    next,
-    previous,
-    playPause,
-  } = usePlayerStore();
+  } = usePlaybackStore();
+
+  const { next, previous } = usePlaylistStore();
+  const { playPause, setVolume, toggleMute } = usePlaybackStore();
 
   const { isEnabled: eqEnabled, currentFrequencies } = useEqualizerStore();
 
@@ -248,16 +248,16 @@ function App() {
         case "ArrowUp":
           e.preventDefault();
           {
-            const { setVolume, volume: currentVolume } =
-              usePlayerStore.getState();
+            const { volume: currentVolume } =
+              usePlaybackStore.getState();
             setVolume(Math.min(currentVolume + 0.1, 1));
           }
           break;
         case "ArrowDown":
           e.preventDefault();
           {
-            const { setVolume, volume: currentVolume } =
-              usePlayerStore.getState();
+            const { volume: currentVolume } =
+              usePlaybackStore.getState();
             setVolume(Math.max(currentVolume - 0.1, 0));
           }
           break;
@@ -272,7 +272,6 @@ function App() {
         case "KeyM":
           e.preventDefault();
           {
-            const { toggleMute } = usePlayerStore.getState();
             toggleMute();
           }
           break;
@@ -281,7 +280,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playPause, next, previous]);
+  }, [playPause, next, previous, setVolume, toggleMute]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();

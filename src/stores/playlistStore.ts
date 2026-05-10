@@ -8,12 +8,20 @@ import {
   deletePlaylist as deletePlaylistFromDB,
 } from '../lib/db';
 import { useLibraryStore } from './libraryStore';
+import { usePlaybackStore } from './playbackStore';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
-interface PlaylistState {
+interface QueueState {
+  queue: Song[];
+  currentIndex: number;
+  shuffleIndices: number[];
+  currentShuffleIndex: number;
+}
+
+interface PlaylistState extends QueueState {
   playlists: Playlist[];
   isInitialized: boolean;
   
@@ -27,6 +35,17 @@ interface PlaylistState {
   reorderPlaylist: (playlistId: string, fromIndex: number, toIndex: number) => Promise<void>;
   getSmartPlaylistSongs: (rule: SmartRule) => Song[];
   getPlaylistSongs: (playlist: Playlist) => Song[];
+  
+  playSong: (song: Song, queue?: Song[], startIndex?: number) => Promise<void>;
+  next: () => void;
+  previous: () => void;
+  addToQueue: (song: Song) => void;
+  addSongsToQueue: (songs: Song[]) => void;
+  removeFromQueue: (index: number) => void;
+  reorderQueue: (fromIndex: number, toIndex: number) => void;
+  clearQueue: () => void;
+  playFromQueue: (index: number) => void;
+  generateShuffleIndices: () => void;
 }
 
 export const usePlaylistStore = create<PlaylistState>()(
@@ -34,6 +53,10 @@ export const usePlaylistStore = create<PlaylistState>()(
     (set, get) => ({
       playlists: [],
       isInitialized: false,
+      queue: [],
+      currentIndex: -1,
+      shuffleIndices: [],
+      currentShuffleIndex: 0,
       
       initialize: async () => {
         if (get().isInitialized) return;
@@ -250,6 +273,235 @@ export const usePlaylistStore = create<PlaylistState>()(
         return playlist.songIds
           .map((id) => songMap.get(id))
           .filter((s): s is Song => s !== undefined);
+      },
+
+      playSong: async (song, queue, startIndex) => {
+        const actualQueue = queue || [song];
+        let index: number;
+        if (
+          startIndex !== undefined &&
+          startIndex >= 0 &&
+          startIndex < actualQueue.length
+        ) {
+          index = startIndex;
+        } else {
+          index = actualQueue.findIndex((s) => s.id === song.id);
+        }
+
+        set({
+          queue: actualQueue,
+          currentIndex: index >= 0 ? index : 0,
+          shuffleIndices: [],
+          currentShuffleIndex: 0,
+        });
+
+        const playbackStore = usePlaybackStore.getState();
+        await playbackStore.setCurrentSong(song);
+        usePlaybackStore.setState({ isPlaying: true });
+        playbackStore.incrementPlayCount();
+      },
+
+      next: () => {
+        const {
+          queue,
+          currentIndex,
+          shuffleIndices,
+          currentShuffleIndex,
+        } = get();
+        if (queue.length === 0) return;
+
+        const playMode = usePlaybackStore.getState().playMode;
+        let nextIndex: number;
+
+        if (playMode === "repeatOne") {
+          usePlaybackStore.setState({ currentTime: 0 });
+          return;
+        }
+
+        if (playMode === "shuffle") {
+          const indices =
+            shuffleIndices.length > 0
+              ? shuffleIndices
+              : Array.from({ length: queue.length }, (_, i) => i).sort(
+                  () => Math.random() - 0.5,
+                );
+
+          let nextShuffleIndex = currentShuffleIndex + 1;
+          if (nextShuffleIndex >= indices.length) {
+            nextShuffleIndex = 0;
+          }
+
+          nextIndex = indices[nextShuffleIndex];
+
+          set({
+            shuffleIndices: indices,
+            currentShuffleIndex: nextShuffleIndex,
+          });
+        } else {
+          nextIndex = currentIndex + 1;
+
+          if (nextIndex >= queue.length) {
+            if (playMode === "repeatAll") {
+              nextIndex = 0;
+            } else {
+              usePlaybackStore.setState({ isPlaying: false });
+              return;
+            }
+          }
+        }
+
+        const nextSong = queue[nextIndex];
+        if (nextSong) {
+          const playbackStore = usePlaybackStore.getState();
+          playbackStore.setCurrentSong(nextSong).then(() => {
+            usePlaybackStore.setState({
+              currentTime: 0,
+              duration: nextSong.duration,
+              isPlaying: true,
+            });
+            playbackStore.incrementPlayCount();
+          });
+          set({
+            currentIndex: nextIndex,
+          });
+        }
+      },
+
+      previous: () => {
+        const { queue, currentIndex } = get();
+        if (queue.length === 0) return;
+
+        const currentTime = usePlaybackStore.getState().currentTime;
+        if (currentTime > 3) {
+          usePlaybackStore.setState({ currentTime: 0 });
+          return;
+        }
+
+        let prevIndex = currentIndex - 1;
+        if (prevIndex < 0) {
+          prevIndex = queue.length - 1;
+        }
+
+        const prevSong = queue[prevIndex];
+        if (prevSong) {
+          const playbackStore = usePlaybackStore.getState();
+          playbackStore.setCurrentSong(prevSong).then(() => {
+            usePlaybackStore.setState({
+              currentTime: 0,
+              duration: prevSong.duration,
+              isPlaying: true,
+            });
+            playbackStore.incrementPlayCount();
+          });
+          set({
+            currentIndex: prevIndex,
+          });
+        }
+      },
+
+      addToQueue: (song) => {
+        set((state) => ({
+          queue: [...state.queue, song],
+        }));
+      },
+
+      addSongsToQueue: (songs) => {
+        set((state) => ({
+          queue: [...state.queue, ...songs],
+        }));
+      },
+
+      removeFromQueue: (index) => {
+        set((state) => {
+          const newQueue = [...state.queue];
+          newQueue.splice(index, 1);
+
+          let newIndex = state.currentIndex;
+          if (index < state.currentIndex) {
+            newIndex = state.currentIndex - 1;
+          } else if (index === state.currentIndex) {
+            newIndex = Math.min(index, newQueue.length - 1);
+          }
+
+          const currentSong = newQueue[newIndex] || null;
+          if (currentSong && currentSong !== state.queue[state.currentIndex]) {
+            const playbackStore = usePlaybackStore.getState();
+            playbackStore.setCurrentSong(currentSong);
+          }
+
+          return {
+            queue: newQueue,
+            currentIndex: newIndex,
+          };
+        });
+      },
+
+      reorderQueue: (fromIndex, toIndex) => {
+        set((state) => {
+          const newQueue = [...state.queue];
+          const [removed] = newQueue.splice(fromIndex, 1);
+          newQueue.splice(toIndex, 0, removed);
+
+          let newIndex = state.currentIndex;
+          if (fromIndex === state.currentIndex) {
+            newIndex = toIndex;
+          } else if (
+            fromIndex < state.currentIndex &&
+            toIndex >= state.currentIndex
+          ) {
+            newIndex = state.currentIndex - 1;
+          } else if (
+            fromIndex > state.currentIndex &&
+            toIndex <= state.currentIndex
+          ) {
+            newIndex = state.currentIndex + 1;
+          }
+
+          return {
+            queue: newQueue,
+            currentIndex: newIndex,
+          };
+        });
+      },
+
+      clearQueue: () => {
+        set({
+          queue: [],
+          currentIndex: -1,
+          shuffleIndices: [],
+          currentShuffleIndex: 0,
+        });
+        usePlaybackStore.setState({
+          currentSong: null,
+          isPlaying: false,
+        });
+      },
+
+      playFromQueue: (index) => {
+        const { queue } = get();
+        const song = queue[index];
+        if (song) {
+          const playbackStore = usePlaybackStore.getState();
+          playbackStore.setCurrentSong(song).then(() => {
+            usePlaybackStore.setState({
+              currentTime: 0,
+              duration: song.duration,
+              isPlaying: true,
+            });
+            playbackStore.incrementPlayCount();
+          });
+          set({
+            currentIndex: index,
+          });
+        }
+      },
+
+      generateShuffleIndices: () => {
+        const { queue } = get();
+        const indices = Array.from({ length: queue.length }, (_, i) => i).sort(
+          () => Math.random() - 0.5,
+        );
+        set({ shuffleIndices: indices, currentShuffleIndex: 0 });
       },
     }),
     {
