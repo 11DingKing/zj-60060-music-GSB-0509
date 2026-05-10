@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLibraryStore } from "./stores/libraryStore";
 import { usePlaylistStore } from "./stores/playlistStore";
-import { usePlayerStore } from "./stores/playerStore";
+import { usePlaybackStore } from "./stores/playbackStore";
 import { useEqualizerStore } from "./stores/equalizerStore";
 import { getAudioBlob } from "./lib/db";
 import Layout from "./components/Layout";
@@ -31,10 +31,10 @@ function App() {
     playMode,
     setCurrentTime,
     setDuration,
-    next,
-    previous,
     playPause,
-  } = usePlayerStore();
+  } = usePlaybackStore();
+
+  const { next, previous } = usePlaylistStore();
 
   const { isEnabled: eqEnabled, currentFrequencies } = useEqualizerStore();
 
@@ -249,7 +249,7 @@ function App() {
           e.preventDefault();
           {
             const { setVolume, volume: currentVolume } =
-              usePlayerStore.getState();
+              usePlaybackStore.getState();
             setVolume(Math.min(currentVolume + 0.1, 1));
           }
           break;
@@ -257,22 +257,22 @@ function App() {
           e.preventDefault();
           {
             const { setVolume, volume: currentVolume } =
-              usePlayerStore.getState();
+              usePlaybackStore.getState();
             setVolume(Math.max(currentVolume - 0.1, 0));
           }
           break;
         case "KeyN":
           e.preventDefault();
-          next();
+          usePlaylistStore.getState().next();
           break;
         case "KeyP":
           e.preventDefault();
-          previous();
+          usePlaylistStore.getState().previous();
           break;
         case "KeyM":
           e.preventDefault();
           {
-            const { toggleMute } = usePlayerStore.getState();
+            const { toggleMute } = usePlaybackStore.getState();
             toggleMute();
           }
           break;

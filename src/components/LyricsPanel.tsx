@@ -1,57 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Close, Upload, Lyrics as LyricsIcon } from './Icons';
-import { usePlayerStore } from '../stores/playerStore';
+import { usePlaybackStore } from '../stores/playbackStore';
+import { useLyricsStore } from '../stores/lyricsStore';
 import { useUIStore } from '../stores/uiStore';
-import { parseLRC, getLyrics, saveLyrics } from '../lib/metadata';
-import type { Lyrics } from '../types';
 
 const LyricsPanel: React.FC = () => {
-  const { currentSong, currentTime, setCurrentTime } = usePlayerStore();
+  const { currentSong, currentTime, setCurrentTime } = usePlaybackStore();
   const { toggleLyricsPanel } = useUIStore();
-  
-  const [lyrics, setLyrics] = useState<Lyrics | null>(null);
-  const [activeIndex, setActiveIndex] = useState<number>(-1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { currentLyrics, activeLineIndex, isLoading, error, loadLyrics, clearLyrics, findActiveLine, importLRCFile } = useLyricsStore();
   
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!currentSong) {
-      setLyrics(null);
-      setActiveIndex(-1);
+      clearLyrics();
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-    
-    getLyrics(currentSong.id).then((savedLyrics) => {
-      setLyrics(savedLyrics || null);
-      setIsLoading(false);
-    }).catch(() => {
-      setIsLoading(false);
-      setError('加载歌词失败');
-    });
+    loadLyrics(currentSong.id);
   }, [currentSong]);
 
   useEffect(() => {
-    if (!lyrics || !lyrics.parsed.length) {
-      setActiveIndex(-1);
+    if (!currentLyrics || !currentLyrics.parsed.length) {
       return;
     }
 
-    let newActiveIndex = -1;
-    for (let i = lyrics.parsed.length - 1; i >= 0; i--) {
-      if (currentTime >= lyrics.parsed[i].time) {
-        newActiveIndex = i;
-        break;
-      }
-    }
+    const newActiveIndex = findActiveLine(currentTime);
     
-    if (newActiveIndex !== activeIndex) {
-      setActiveIndex(newActiveIndex);
+    if (newActiveIndex !== activeLineIndex) {
+      useLyricsStore.getState().setActiveLineIndex(newActiveIndex);
       
       if (containerRef.current && newActiveIndex >= 0) {
         const lineElements = containerRef.current.querySelectorAll('.lyrics-line');
@@ -63,33 +41,17 @@ const LyricsPanel: React.FC = () => {
         }
       }
     }
-  }, [currentTime, lyrics, activeIndex]);
+  }, [currentTime, currentLyrics, activeLineIndex]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentSong) return;
 
-    setIsLoading(true);
-    setError(null);
+    const text = await file.text();
+    await importLRCFile(currentSong.id, text);
 
-    try {
-      const text = await file.text();
-      const parsedLyrics = parseLRC(text);
-      
-      await saveLyrics(currentSong.id, parsedLyrics);
-      setLyrics({
-        id: '',
-        songId: currentSong.id,
-        content: text,
-        parsed: parsedLyrics,
-      });
-    } catch (err) {
-      setError('解析歌词文件失败');
-    } finally {
-      setIsLoading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -147,7 +109,7 @@ const LyricsPanel: React.FC = () => {
           </div>
         )}
 
-        {!isLoading && !lyrics && (
+        {!isLoading && !currentLyrics && (
           <div className="empty-state small">
             <div className="empty-state-icon" style={{ fontSize: 48 }}>
               <LyricsIcon />
@@ -157,18 +119,18 @@ const LyricsPanel: React.FC = () => {
           </div>
         )}
 
-        {!isLoading && lyrics && lyrics.parsed.length === 0 && (
+        {!isLoading && currentLyrics && currentLyrics.parsed.length === 0 && (
           <div className="empty-state small">
             <p className="empty-state-subtitle">歌词格式不正确</p>
           </div>
         )}
 
-        {!isLoading && lyrics && lyrics.parsed.length > 0 && (
+        {!isLoading && currentLyrics && currentLyrics.parsed.length > 0 && (
           <div ref={containerRef} className="lyrics-lines">
-            {lyrics.parsed.map((line, index) => (
+            {currentLyrics.parsed.map((line, index) => (
               <div
                 key={index}
-                className={`lyrics-line ${index === activeIndex ? 'active' : ''}`}
+                className={`lyrics-line ${index === activeLineIndex ? 'active' : ''}`}
                 onClick={() => handleLineClick(line.time)}
               >
                 {line.text || '\u00A0'}
