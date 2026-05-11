@@ -10,6 +10,8 @@ import type {
 const DB_NAME = "MusicPlayerDB";
 const DB_VERSION = 1;
 
+type StoreName = "songs" | "playlists" | "lyrics" | "audioBlobs" | "equalizerPresets";
+
 interface MusicPlayerDB {
   songs: Song;
   playlists: Playlist;
@@ -57,14 +59,61 @@ export async function getDB(): Promise<IDBPDatabase<MusicPlayerDB>> {
   return db;
 }
 
-export async function getAllSongs(): Promise<Song[]> {
+async function getAll<T extends StoreName>(
+  storeName: T
+): Promise<MusicPlayerDB[T][]> {
   const database = await getDB();
-  return database.getAll("songs");
+  return database.getAll(storeName);
+}
+
+async function getById<T extends StoreName>(
+  storeName: T,
+  id: string
+): Promise<MusicPlayerDB[T] | undefined> {
+  const database = await getDB();
+  return database.get(storeName, id);
+}
+
+async function add<T extends StoreName>(
+  storeName: T,
+  item: MusicPlayerDB[T]
+): Promise<void> {
+  const database = await getDB();
+  await database.add(storeName, item);
+}
+
+async function put<T extends StoreName>(
+  storeName: T,
+  item: MusicPlayerDB[T]
+): Promise<void> {
+  const database = await getDB();
+  await database.put(storeName, item);
+}
+
+async function remove<T extends StoreName>(
+  storeName: T,
+  id: string
+): Promise<void> {
+  const database = await getDB();
+  await database.delete(storeName, id);
+}
+
+async function getByIndex<T extends StoreName>(
+  storeName: T,
+  indexName: string,
+  value: string
+): Promise<MusicPlayerDB[T] | undefined> {
+  const database = await getDB();
+  const index = database.transaction(storeName).store.index(indexName);
+  return index.get(value);
+}
+
+export async function getAllSongs(): Promise<Song[]> {
+  return getAll("songs");
 }
 
 export async function getSongById(id: string): Promise<Song | undefined> {
-  const database = await getDB();
-  return database.get("songs", id);
+  return getById("songs", id);
 }
 
 export async function addSong(song: Song, audioBlob: Blob): Promise<void> {
@@ -82,8 +131,7 @@ export async function addSong(song: Song, audioBlob: Blob): Promise<void> {
 }
 
 export async function updateSong(song: Song): Promise<void> {
-  const database = await getDB();
-  await database.put("songs", song);
+  return put("songs", song);
 }
 
 export async function deleteSong(id: string): Promise<void> {
@@ -110,79 +158,65 @@ export async function deleteSong(id: string): Promise<void> {
 }
 
 export async function getAudioBlob(blobId: string): Promise<Blob | undefined> {
-  const database = await getDB();
-  const audioBlob = await database.get("audioBlobs", blobId);
+  const audioBlob = await getById("audioBlobs", blobId);
   return audioBlob?.blob;
 }
 
 export async function getAllPlaylists(): Promise<Playlist[]> {
-  const database = await getDB();
-  return database.getAll("playlists");
+  return getAll("playlists");
 }
 
 export async function getPlaylistById(
   id: string,
 ): Promise<Playlist | undefined> {
-  const database = await getDB();
-  return database.get("playlists", id);
+  return getById("playlists", id);
 }
 
 export async function addPlaylist(playlist: Playlist): Promise<void> {
-  const database = await getDB();
-  await database.add("playlists", playlist);
+  return add("playlists", playlist);
 }
 
 export async function updatePlaylist(playlist: Playlist): Promise<void> {
-  const database = await getDB();
   playlist.updatedAt = Date.now();
-  await database.put("playlists", playlist);
+  return put("playlists", playlist);
 }
 
 export async function deletePlaylist(id: string): Promise<void> {
-  const database = await getDB();
-  await database.delete("playlists", id);
+  return remove("playlists", id);
 }
 
 export async function getLyricsBySongId(
   songId: string,
 ): Promise<Lyrics | undefined> {
-  const database = await getDB();
-  const index = database.transaction("lyrics").store.index("songId");
-  return index.get(songId);
+  return getByIndex("lyrics", "songId", songId);
 }
 
 export async function addLyrics(lyrics: Lyrics): Promise<void> {
-  const database = await getDB();
-  await database.add("lyrics", lyrics);
+  return add("lyrics", lyrics);
 }
 
 export async function updateLyrics(lyrics: Lyrics): Promise<void> {
-  const database = await getDB();
-  await database.put("lyrics", lyrics);
+  return put("lyrics", lyrics);
 }
 
 export async function getAllEqualizerPresets(): Promise<EqualizerPreset[]> {
-  const database = await getDB();
-  return database.getAll("equalizerPresets");
+  return getAll("equalizerPresets");
 }
 
 export async function addEqualizerPreset(
   preset: EqualizerPreset,
 ): Promise<void> {
-  const database = await getDB();
-  await database.add("equalizerPresets", preset);
+  return add("equalizerPresets", preset);
 }
 
 export async function updateEqualizerPreset(
   preset: EqualizerPreset,
 ): Promise<void> {
-  const database = await getDB();
-  await database.put("equalizerPresets", preset);
+  return put("equalizerPresets", preset);
 }
 
 export async function deleteEqualizerPreset(id: string): Promise<void> {
-  const database = await getDB();
-  await database.delete("equalizerPresets", id);
+  return remove("equalizerPresets", id);
 }
 
 export const defaultEqualizerPresets: EqualizerPreset[] = [

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Close, Trash, More, Play, GripVertical, List } from "./Icons";
-import { usePlayerStore } from "../stores/playerStore";
+import { usePlaylistStore } from "../stores/playlistStore";
+import { usePlaybackStore } from "../stores/playbackStore";
 import { useUIStore } from "../stores/uiStore";
 import { Song } from "../types";
 import { formatTime } from "../utils/format";
@@ -9,12 +10,12 @@ const QueuePanel: React.FC = () => {
   const {
     queue,
     currentIndex,
-    currentSong,
-    playSong,
+    playFromQueue,
     removeFromQueue,
     reorderQueue,
-  } = usePlayerStore();
-  const { toggleQueuePanel } = useUIStore();
+  } = usePlaylistStore();
+  const currentSong = usePlaybackStore((state) => state.currentSong);
+  const toggleQueuePanel = useUIStore((state) => state.toggleQueuePanel);
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -61,7 +62,6 @@ const QueuePanel: React.FC = () => {
   };
 
   const handleDoubleClick = (song: Song, index: number) => {
-    const { playFromQueue } = usePlayerStore.getState();
     playFromQueue(index);
   };
 

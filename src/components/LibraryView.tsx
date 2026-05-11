@@ -12,7 +12,7 @@ import {
   Music,
 } from "./Icons";
 import { useLibraryStore } from "../stores/libraryStore";
-import { usePlayerStore } from "../stores/playerStore";
+import { usePlaybackStore } from "../stores/playbackStore";
 import { usePlaylistStore } from "../stores/playlistStore";
 import { ViewMode, SortField, SortDirection, Song } from "../types";
 import { formatTime } from "../utils/format";
@@ -36,8 +36,8 @@ const LibraryView: React.FC = () => {
     removeSong,
   } = useLibraryStore();
 
-  const { playSong, addToQueue, currentSong, isPlaying } = usePlayerStore();
-  const { playlists, addSongToPlaylist } = usePlaylistStore();
+  const { playSong, addToQueue, playlists, addSongToPlaylist } = usePlaylistStore();
+  const { currentSong, isPlaying } = usePlaybackStore();
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
