@@ -15,7 +15,8 @@ import {
   Equalizer,
   Visualizer,
 } from "./Icons";
-import { usePlayerStore } from "../stores/playerStore";
+import { usePlaybackStore } from "../stores/playbackStore";
+import { usePlaylistStore } from "../stores/playlistStore";
 import { useUIStore } from "../stores/uiStore";
 import { PlayMode } from "../types";
 import { formatTime } from "../utils/format";
@@ -40,12 +41,11 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
     isMuted,
     playMode,
     playPause,
-    next,
-    previous,
     setVolume,
     toggleMute,
     setPlayMode,
-  } = usePlayerStore();
+  } = usePlaybackStore();
+  const { next, previous } = usePlaylistStore();
 
   const {
     queuePanelOpen,

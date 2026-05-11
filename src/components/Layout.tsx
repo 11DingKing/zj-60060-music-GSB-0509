@@ -9,7 +9,7 @@ import LibraryView from "./LibraryView";
 import PlaylistView from "./PlaylistView";
 import StatisticsView from "./StatisticsView";
 import { useUIStore } from "../stores/uiStore";
-import { usePlayerStore } from "../stores/playerStore";
+import { usePlaybackStore } from "../stores/playbackStore";
 import { useLibraryStore } from "../stores/libraryStore";
 
 interface LayoutProps {
@@ -34,7 +34,7 @@ const Layout: React.FC<LayoutProps> = ({
     visualizerEnabled,
   } = useUIStore();
 
-  const { currentSong, isPlaying } = usePlayerStore();
+  const { currentSong, isPlaying } = usePlaybackStore();
   const { loading } = useLibraryStore();
 
   const showVisualizer = visualizerEnabled && currentSong && isPlaying;
